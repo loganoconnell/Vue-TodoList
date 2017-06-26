@@ -1,0 +1,10 @@
+{
+ "name": "todo-list",
+ "version": "1.0.0",
+ "description": "Logan's To-Do List",
+ "author": "Logan O'Connell <logan.developeremail@gmail.com>",
+ "private": true,
+ "scripts": {
+   "postinstall": "npm install express"
+ }
+}
