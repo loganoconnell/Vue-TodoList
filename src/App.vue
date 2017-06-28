@@ -1,16 +1,16 @@
 <template>
     <div id="app" class="container-fluid">
-        <div class="page-header">
+        <div class="page-header no-pageheader-top">
             <h1>Logan's <small>To-Do List</small></h1>
         </div>
         <div class="panel panel-default">
             <div class="panel-heading">
-                <h3 class="panel-title"><a data-toggle="collapse" href="#addBody">Add New To-Do</a></h3>
+                <h3 class="panel-title"><a data-toggle="collapse" href="#addTodo">Add New To-Do</a></h3>
             </div>
-            <div class="panel-body collapse" id="addBody">
-                <form id="form" class="form-inline" v-on:submit.prevent="addTodo">
+            <div id="addTodo" class="panel-body collapse">
+                <form id="todoForm" class="form-inline" v-on:submit.prevent="addTodo">
                     <div class="form-group">
-                        <label for="todoText">To-Do:</label>
+                        <label for="todoText">Text:</label>
                         <input type="text" id="todoText" class="form-control" v-model="newTodo.text">
                     </div>
                     <div class="form-group">
@@ -18,8 +18,10 @@
                         <input type="text" id="todoDue" class="form-control" v-model="newTodo.due">
                     </div>
                     <div class="form-group">
-                        <label for="todoCategory">Category:</label>
-                        <input type="text" id="todoCategory" class="form-control" v-model="newTodo.category">
+                        <label for="todoList">List:</label>
+                        <select id="todoList" class="form-control" v-model="newTodo.list">
+                            <option v-for="list in lists" :value="list">{{list.name}}</option>
+                        </select>
                     </div>
                     <input type="submit" class="btn btn-primary" value="Add">
                 </form>
@@ -27,29 +29,48 @@
         </div>
         <div class="panel panel-default">
             <div class="panel-heading">
-                <h3 class="panel-title">To-Do List</h3>
+                <h3 class="panel-title"><a data-toggle="collapse" href="#addList">Add New List</a></h3>
             </div>
-            <div class="panel-body">
-                <table class="table table-bordered table-hover">
-                    <thead>
-                        <tr>
-                            <th>To-Do</th>
-                            <th>Due</th>
-                            <th>Category</th>
-                            <th></th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr v-for="todo in todos">
-                            <td class="data">{{todo.text}}</td>
-                            <td class="data">{{todo.due}}</td>
-                            <td class="data">{{todo.category}}</td>
-                            <td>
-                                <span class="glyphicon glyphicon-trash click" aria-hidden="true" v-on:click="removeTodo(todo)"></span>
-                            </td>
-                        </tr>
-                    </tbody>
-                </table>
+            <div class="panel-body collapse" id="addList">
+                <form id="listForm" class="form-inline" v-on:submit.prevent="addList">
+                    <div class="form-group">
+                        <label for="listName">Name:</label>
+                        <input type="text" id="listName" class="form-control" v-model="newList.name">
+                    </div>
+                    <input type="submit" class="btn btn-primary" value="Add">
+                </form>
+            </div>
+        </div>
+        <div class="panel panel-default">
+            <div class="panel-heading no-tabs-bottom">
+                <h3 class="panel-title">Lists</h3>
+                <ul class="nav nav-tabs nav-justified">
+                    <li v-for="(list, index) in lists"><a data-toggle="tab" :href="list.name" v-on:click="setActiveNav(index)">{{list.name}}&nbsp;
+                        <span class="glyphicon glyphicon-remove click closeList hidden-at-first" aria-hidden="true" v-on:click="removeList(list)"></span>
+                    </a></li>
+                </ul>
+            </div>
+            <div id="tables" class="panel-body tab-content">
+                <div class="table-responsive tab-pane fade" v-for="list in lists" :id="list.name">
+                    <table class="table table-bordered table-hover no-table-bottom">
+                        <thead>
+                            <tr>
+                                <th>To-Do</th>
+                                <th>Due</th>
+                                <th></th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr v-for="(todo, index) in list.todos" v-if="index != 0">
+                                <td class="data">{{todo.text}}</td>
+                                <td class="data">{{todo.due}}</td>
+                                <td>
+                                    <span class="glyphicon glyphicon-trash click" aria-hidden="true" v-on:click="removeTodo(list, index)"></span>
+                                </td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
@@ -70,31 +91,53 @@
     let app = Firebase.initializeApp(config)
     let db = app.database()
 
-    let todosRef = db.ref('todos')
+    let listsRef = db.ref('lists')
+
+    let previousNavIndex = 0;
 
     export default {
         name: 'app',
         firebase: {
-            todos: todosRef
+            lists: listsRef,
         },
         data() {
             return {
                 newTodo: {
                     text: '',
                     due: '',
-                    category: ''
+                    list: ''
+                },
+                newList: {
+                    name: ''
                 }
             }
         },
         methods: {
+            setActiveNav: function(nav) {
+                $('#tables').children().eq(previousNavIndex).removeClass('in active');
+                $('.closeList').eq(previousNavIndex).hide();
+                $('#tables').children().eq(nav).addClass('in active');
+                $('.closeList').eq(nav).show();
+                previousNavIndex = nav;
+            },
+            addList: function() {
+                listsRef.push(this.newList);
+                
+                this.newList.name = '';
+            },
             addTodo: function() {
+                let todosRef = listsRef.child(this.newTodo.list['.key']).child('todos');
+                delete this.newTodo.list;
                 todosRef.push(this.newTodo);
+
                 this.newTodo.text = '';
                 this.newTodo.due = '';
-                this.newTodo.category = '';
             },
-            removeTodo: function(todo) {
-                todosRef.child(todo['.key']).remove()
+            removeList: function(list) {
+                listsRef.child(list['.key']).remove();
+            },
+            removeTodo: function(list, index) {
+                listsRef.child(list['.key']).child('todos').child(index).remove();
             }
         }
     }
@@ -110,11 +153,15 @@
         margin-top: 60px;
     }
 
-    .data {
-        text-align: left;
-    }
+    .data {text-align: left; }
 
-    .click {
-        cursor: pointer;
-    }
+    .click { cursor: pointer; }
+
+    .no-pageheader-top { margin-top: 0px; }
+
+    .no-tabs-bottom { padding-bottom: 0px; }
+
+    .hidden-at-first { display: none; }
+
+    .no-table-bottom { margin-bottom: 0px; }
 </style>
